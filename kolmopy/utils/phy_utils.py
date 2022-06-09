@@ -2,7 +2,7 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 
-from kolmopy.convention import _check_dims_img, _check_dim_vect
+from kolmopy.convention import _check_dims_img, _check_ij_indexing
 
 """
 Sources
@@ -40,6 +40,7 @@ def my_grad(f:tuple, sp:tuple, indexing:str = "xy", order=1):
 
 
 def compute_vorticity(xy, uv, indexing='ij', order=1):
+    _check_ij_indexing(xy)
     _check_dims_img(xy)
     _check_dims_img(uv)
     assert xy.shape == uv.shape
@@ -51,6 +52,7 @@ def compute_vorticity(xy, uv, indexing='ij', order=1):
 
 
 def compute_divergence(xy, uv, indexing='ij', order=1):
+    _check_ij_indexing(xy)
     _check_dims_img(xy)
     _check_dims_img(uv)
     assert xy.shape == uv.shape
