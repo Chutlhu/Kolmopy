@@ -3,6 +3,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from kolmopy.convention import _check_dims_img, _check_ij_indexing
+import kolmopy.utils.img_utils as img
+import torchvision.transforms as T
+
 
 """
 Sources
@@ -66,6 +69,65 @@ def compute_divergence(xy, uv, indexing='ij', order=1):
 def compute_magnitude(uv):
     _check_dims_img(uv)
     return np.sqrt(uv[:,:,0]**2 + uv[:,:,1]**2)
+
+
+def resize(y, scale):
+    if scale == 1:
+        return y
+    res = y.shape[0]
+    y = T.Resize(size=int(scale*res), antialias=False)(y.permute(2,0,1))
+    return T.Resize(size=res)(y).permute(1,2,0)
+
+
+def lowpass_filter(y, s):
+    # print(f'Low passing with scale: {s}')
+    
+    DFT = torch.fft.fft2(y.permute(2,0,1))
+    DFT = torch.fft.fftshift(DFT)
+
+    # Ideal Low Pass filter
+    LP = torch.from_numpy(img.draw_circle(y.shape[:2], s))
+    LP = LP / torch.max(torch.abs(LP))
+    DFTlp = DFT * LP[None,:,:]
+    ylp = (torch.fft.ifft2(torch.fft.ifftshift(DFTlp)).real).permute(1,2,0)
+
+    return ylp
+
+def energy_spectrum(uv):
+    
+    
+    # ensure image view
+    T, Rx, Ry, D = uv.shape
+    assert Rx == Ry
+    assert D == 2
+
+    # 2D DFT
+    UV = torch.fft.fft2(uv/(Rx * Ry), dim=[1,2])
+
+    # Magnitude spectrum: 1/2 * (U^2 + V^2)
+    M = torch.mean(torch.abs(UV)**2, dim=[0,-1])
+    # center dft
+    M = torch.fft.fftshift(M)
+
+    R = M.shape[0]
+
+    # maximum resolution
+    K = int(np.ceil((np.sqrt((R)**2+(R)**2))/2.) + 1)
+    freqs = torch.arange(K).to(uv.device)
+
+    # meshgrid of all the 2D DFT freqs
+    ii, ij = torch.meshgrid([torch.arange(Rx)]*2)
+    # norm of the frequencies
+    ij = torch.round(torch.sqrt((ii-R//2)**2+(ij-R//2)**2)).long().to(uv.device)
+
+    # Power spectrum computation
+    M = M.flatten()   # values
+    ij = ij.flatten() # indeces
+    Ek = torch.zeros(K, device=uv.device)
+    Ek.index_add_(0, ij, M)
+    # # normalization
+    # Ek = Ek
+    return Ek, freqs
 
 
 def powerspec(uv):

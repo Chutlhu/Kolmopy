@@ -4,6 +4,7 @@ Data From Thomas Corpetti
 
 import os
 from pathlib import Path
+from time import time
 import numpy as np
 import h5py
 import matplotlib.pyplot as plt
@@ -59,6 +60,9 @@ class Synth2D(Dataset):
         self.delta_t = None
     
         self.indexing = 'ij'
+        self.img_res = [512,512]
+
+        self.diffusion = self.dset.attrs['diffusion']
 
         self.variables = {'txy':None}
         self.fields = {'uvw':None}
@@ -85,6 +89,10 @@ class Synth2D(Dataset):
     def w(self): return self.fields['uvw'][...,2].squeeze()
     @property
     def uvw(self): return self.fields['uvw'].squeeze()
+    @property
+    def fshape(self): return self.fields['uvw'].shape
+    @property
+    def vshape(self): return self.variables['txy'].shape
     
     def validate(self):
         """
@@ -100,8 +108,9 @@ class Synth2D(Dataset):
         print('done!')
 
     def load_data(self, time_idx=None, only_vel_field=True):
-        if not isinstance(time_idx, np.ndarray):
+        if not isinstance(time_idx, np.ndarray) and not time_idx is None:
             time_idx = np.array([time_idx])
+
 
         if only_vel_field:
             self.variables = {
@@ -143,7 +152,7 @@ class Synth2D(Dataset):
     def __str__(self) -> str:
         name = self.name
         data_path = self.data_home
-        return f'{name} stored in {data_path}.\n- variables {self.variables.keys()}\n- fields: {self.fields.keys()} '
+        return f'{name} stored in {data_path}.\n- variables {self.variables.keys()}, dim {self.vshape}\n- fields: {self.fields.keys()} dim {self.fshape} '
 
 
 def from_raw_data_to_hdf5(dset, dset_name, mat_file):
@@ -235,8 +244,8 @@ if __name__ == '__main__':
 
     """
     import argparse
-    parser = argparse.ArgumentParser("turb2D.publish",
-                                     description="Publish turb2D to HDF5")
+    parser = argparse.ArgumentParser("Synth2D.publish",
+                                     description="Publish Synth2D to HDF5")
     parser.add_argument("--file", type=Path, 
                         help='Path to original file')
     parser.add_argument("-o", "--out", type=Path,
